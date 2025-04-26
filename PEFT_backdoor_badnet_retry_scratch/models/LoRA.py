@@ -10,6 +10,8 @@ class LoRAConfig:
         self.lora_dropout = lora_dropout
         self.freeze_weights = freeze_weights
 
+
+# https://towardsdatascience.com/implementing-lora-from-scratch-20f838b046f1
 class LoRALinear(nn.Linear):
     def __init__(self, in_features, out_features, config: LoRAConfig, *args, **kwargs):
         super().__init__(in_features, out_features, *args, **kwargs)

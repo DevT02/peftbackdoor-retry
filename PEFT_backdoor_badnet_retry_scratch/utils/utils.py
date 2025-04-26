@@ -11,6 +11,7 @@ from torchvision import datasets
 from tqdm import tqdm
 from models.badnet import BadNet
 from models.LoRA import LoRAConfig
+from datetime import datetime
 
 def array2img(x):
     a = np.array(x)
@@ -63,86 +64,193 @@ def optimizer_picker(optimization, param, lr):
     return optimizer
 
 
-def backdoor_model_trainer(dataname, train_data_loader, test_data_ori_loader, test_data_tri_loader, trigger_label, epoch, batch_size, loss_mode, optimization, lr, print_perform_every_epoch, basic_model_path, device):
-    rank = 16
-    lora_alpha = 16.0
-    lora_dropout = 0.15
-    freeze_weights = True
+def safe_cpu_scalar(x):
+    """
+    If x is a GPU tensor of shape [], returns its Python float (x.item()).
+    Otherwise, returns x unchanged.
+    """
+    if torch.is_tensor(x):
+        return x.detach().cpu().item()  # works if x is a 0-dim or single-scalar tensor
+    return x
 
-    lora_config = LoRAConfig(rank=rank, lora_alpha=lora_alpha, lora_dropout=lora_dropout, freeze_weights=freeze_weights)
-
-
-    badnet = BadNet(
-        input_channels=train_data_loader.dataset.channels, 
-        output_num=train_data_loader.dataset.class_num, 
-        config=lora_config  
-    ).to(device)
-
-    criterion = loss_picker(loss_mode)
-    # optimizer = optimizer_picker(optimization, badnet.parameters(), lr=lr)
-    lora_parameters = [p for p in badnet.parameters() if p.requires_grad]  # Only train LoRA parameters
-    optimizer = optimizer_picker(optimization, lora_parameters, lr=lr)
-
-
-
-    train_process = []
-    print("### target label is %d, EPOCH is %d, Learning Rate is %f" % (trigger_label, epoch, lr))
-    print("### Train set size is %d, ori test set size is %d, tri test set size is %d\n" % (len(train_data_loader.dataset), len(test_data_ori_loader.dataset), len(test_data_tri_loader.dataset)))
-    try:
-        for epo in range(epoch):
-            loss = train(badnet, train_data_loader, criterion, optimizer, loss_mode)
-            acc_train = eval(badnet, train_data_loader, batch_size=batch_size, mode='backdoor', print_perform=print_perform_every_epoch)
-            acc_test_ori = eval(badnet, test_data_ori_loader, batch_size=batch_size, mode='backdoor', print_perform=print_perform_every_epoch)
-            acc_test_tri = eval(badnet, test_data_tri_loader, batch_size=batch_size, mode='backdoor', print_perform=print_perform_every_epoch)
-
-            print("# EPOCH%d   loss: %.4f  training acc: %.4f, ori testing acc: %.4f, trigger testing acc: %.4f\n"\
-                % (epo, loss.item(), acc_train, acc_test_ori, acc_test_tri))
-            
-            # save model to checkpoints directory
-            torch.quantization.convert(badnet, inplace=True)
-            torch.save(badnet.state_dict(), basic_model_path)
-
-            # save training progress
-            train_process.append(( dataname, batch_size, trigger_label, lr, epo, loss.item(), acc_train, acc_test_ori, acc_test_tri))
-            df = pd.DataFrame(train_process, columns=("dataname", "batch_size", "trigger_label", "learning_rate", "epoch", "loss", "train_acc", "test_ori_acc", "test_tri_acc"))
-            df.to_csv("./logs/%s_train_process_trigger%d.csv" % (dataname, trigger_label), index=False, encoding='utf-8')
-    except KeyboardInterrupt:
-        show_graphs(lora_config=lora_config, train_process=train_process)
-        return badnet
-
-    show_graphs(lora_config=lora_config, train_process=train_process)
-
-
-    return badnet
-
-def show_graphs(lora_config, train_process):
+def show_graphs(lora_config, train_process, results_dir="./results", lr=None, batch_size=None, poison_ratio=None):
     print("Plotting results...")
+    # Unpack train_process
     _, _, _, _, epochs, losses, train_accs, ori_test_accs, trigger_test_accs = zip(*train_process)
+
+    # Convert GPU tensors to Python floats if needed
+    epochs = [safe_cpu_scalar(e) for e in epochs]
+    losses = [safe_cpu_scalar(l) for l in losses]
+    train_accs = [safe_cpu_scalar(a) for a in train_accs]
+    ori_test_accs = [safe_cpu_scalar(a) for a in ori_test_accs]
+    trigger_test_accs = [safe_cpu_scalar(a) for a in trigger_test_accs]
+
+    # Now everything is a float or int, safe to plot
     plt.figure(figsize=(12, 6))
+
+    # 1) Loss subplot
     plt.subplot(1, 2, 1)
     plt.plot(epochs, losses, label="Loss", color="red")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.title("Training Loss Over Epochs")
     plt.legend()
+
+    # 2) Accuracy subplot
     plt.subplot(1, 2, 2)
-    plt.plot(epochs, train_accs, label="Training Accuracy", color="blue")
+    plt.plot(epochs, train_accs, label="Train Accuracy", color="blue")
     plt.plot(epochs, ori_test_accs, label="Original Test Accuracy", color="green")
     plt.plot(epochs, trigger_test_accs, label="Trigger Test Accuracy", color="orange")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.title("Accuracies Over Epochs")
     plt.legend()
+
+    # LoRA config text
     lora_text = (
         f"LoRA Config:\n"
         f"Rank: {lora_config.rank}\n"
         f"Alpha: {lora_config.lora_alpha}\n"
         f"Dropout: {lora_config.lora_dropout}\n"
-        f"Freeze Weights: {lora_config.freeze_weights}"
+        f"Freeze: {lora_config.freeze_weights}"
     )
+
+
+    if lr is not None:
+        lora_text += f"\nLR: {lr}"
+    if batch_size is not None:
+        lora_text += f"\nBatch size: {batch_size}"
+    if poison_ratio is not None:
+        lora_text += f"\nPoison ratio: {poison_ratio}"
+
     plt.gcf().text(0.75, 0.3, lora_text, fontsize=10, bbox=dict(facecolor='white', alpha=0.7))
+
     plt.tight_layout()
-    plt.show()
+
+    # Make sure results_dir exists
+    os.makedirs(results_dir, exist_ok=True)
+
+    # Filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"lora_r{lora_config.rank}_alpha{lora_config.lora_alpha}_{timestamp}.png"
+    save_path = os.path.join(results_dir, filename)
+
+    plt.savefig(save_path, dpi=150)
+    plt.close()
+    print(f"Plot saved to {save_path}")
+
+def backdoor_model_trainer(
+    dataname, 
+    train_data_loader, 
+    test_data_ori_loader, 
+    test_data_tri_loader, 
+    trigger_label, 
+    epoch, 
+    batch_size, 
+    loss_mode, 
+    optimization, 
+    lr, 
+    print_perform_every_epoch, 
+    basic_model_path, 
+    device,
+    # LoRA hyperparams
+    use_lora=True,
+    lora_rank=16,
+    lora_alpha=16.0,
+    lora_dropout=0.05,
+    freeze_weights=True,
+    poisoned_portion=0.1
+):
+    """
+    If use_lora=True, we freeze base weights and only train LoRA parameters.
+    Otherwise, you could adapt the code to fully train all layers. 
+    """
+
+    # Create LoRAConfig
+    lora_config = LoRAConfig(
+        rank=lora_rank if use_lora else 0,
+        lora_alpha=lora_alpha if use_lora else 0.0,
+        lora_dropout=lora_dropout if use_lora else 0.0,
+        freeze_weights=freeze_weights
+    )
+
+    # Initialize BadNet
+    badnet = BadNet(
+        input_channels=train_data_loader.dataset.channels,
+        output_num=train_data_loader.dataset.class_num,
+        config=lora_config
+    ).to(device)
+
+    # 1) Define the loss function here
+    criterion = loss_picker(loss_mode)
+
+    # 2) Pick optimizer (as you already do)
+    if use_lora:
+        lora_parameters = [p for p in badnet.parameters() if p.requires_grad]
+        optimizer = optimizer_picker(optimization, lora_parameters, lr=lr)
+    else:
+        optimizer = optimizer_picker(optimization, badnet.parameters(), lr=lr)
+
+
+
+    train_process = []
+    print(f"### target label={trigger_label}, EPOCH={epoch}, LR={lr}, use_lora={use_lora}")
+    print(f"### Train size={len(train_data_loader.dataset)}, "
+          f"ori test size={len(test_data_ori_loader.dataset)}, "
+          f"tri test size={len(test_data_tri_loader.dataset)}\n")
+
+    try:
+        for epo in range(epoch):
+            running_loss = train(badnet, train_data_loader, criterion, optimizer, loss_mode)
+            acc_train = eval(badnet, train_data_loader, batch_size=batch_size, mode='backdoor', print_perform=print_perform_every_epoch)
+            acc_test_ori = eval(badnet, test_data_ori_loader, batch_size=batch_size, mode='backdoor', print_perform=print_perform_every_epoch)
+            acc_test_tri = eval(badnet, test_data_tri_loader, batch_size=batch_size, mode='backdoor', print_perform=print_perform_every_epoch)
+
+            print(f"# EPOCH {epo}   loss: {running_loss:.4f}, "
+                  f"train acc: {acc_train:.4f}, "
+                  f"ori test acc: {acc_test_ori:.4f}, "
+                  f"trigger test acc: {acc_test_tri:.4f}\n")
+
+            # (Optional) If you want to do post-training quantization, 
+            # do it after training is done, not every epoch. Otherwise comment out.
+            # torch.quantization.convert(badnet, inplace=True)
+
+            # Save model
+            torch.save(badnet.state_dict(), basic_model_path)
+
+            # Save training progress
+            train_process.append((dataname, batch_size, trigger_label, lr, epo, running_loss, acc_train, acc_test_ori, acc_test_tri))
+            df = pd.DataFrame(train_process, 
+                              columns=["dataname", "batch_size", "trigger_label", "learning_rate", "epoch", "loss", "train_acc", "test_ori_acc", "test_tri_acc"])
+            # Example: store in a unique CSV name
+            csv_filename = f"./logs/{dataname}_loraRank{lora_rank}_alpha{lora_alpha}_trigger{trigger_label}.csv"
+            df.to_csv(csv_filename, index=False, encoding='utf-8')
+    except KeyboardInterrupt:
+        print("Training interrupted. Plotting partial results...")
+        if lora_config is not None:
+            show_graphs(
+                lora_config=lora_config,
+                train_process=train_process,
+                results_dir=f"./results/{dataname}",
+                lr=lr,
+                batch_size=batch_size,
+                poison_ratio=poisoned_portion
+            )
+        return badnet
+
+    if lora_config is not None:
+        show_graphs(
+            lora_config=lora_config,
+            train_process=train_process,
+            results_dir=f"./results/{dataname}",
+            lr=lr,
+            batch_size=batch_size,
+            poison_ratio=poisoned_portion
+        )
+
+    return badnet
+
+
 
 def train(model, data_loader, criterion, optimizer, loss_mode):
     running_loss = 0

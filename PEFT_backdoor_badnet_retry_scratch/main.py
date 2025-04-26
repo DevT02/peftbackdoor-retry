@@ -1,13 +1,29 @@
 import os
 import pathlib
 import torch
+import random
+import numpy as np
 from data import PoisonedDataset, load_init_data, create_backdoor_data_loader
 from models import BadNet, load_model
 from utils.utils import print_model_perform, backdoor_model_trainer
 from config import opt
 
+def set_seed(seed):
+    """
+    Set all relevant random seeds to ensure reproducibility.
+    """
+    random.seed(seed)              # Python's built-in random
+    np.random.seed(seed)           # NumPy
+    torch.manual_seed(seed)        # PyTorch CPU random seed
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)   # PyTorch GPU random seed
 
 def main():
+    print(f"Download dataset: {opt.download}")  
+    if opt.seed is not None:
+        print(f"Setting random seed = {opt.seed}")
+        set_seed(opt.seed)
+
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     # create related path
@@ -36,7 +52,14 @@ def main():
                 lr=opt.learning_rate,
                 print_perform_every_epoch=opt.pp,
                 basic_model_path= basic_model_path,
-                device=device
+                device=device,
+
+                use_lora=opt.use_lora,
+                lora_rank=opt.lora_rank,
+                lora_alpha=opt.lora_alpha,
+                lora_dropout=opt.lora_dropout,
+                freeze_weights=opt.freeze_weights,
+                poisoned_portion=opt.poisoned_portion
                 )
     else:
         model = load_model(basic_model_path, model_type="badnet", input_channels=train_data_loader.dataset.channels, output_num=train_data_loader.dataset.class_num, device=device)
@@ -46,6 +69,8 @@ def main():
     print_model_perform(model, test_data_ori_loader)
     print("## triggered test data performance:")
     print_model_perform(model, test_data_tri_loader)
+
+
 
 if __name__ == "__main__":
     main()

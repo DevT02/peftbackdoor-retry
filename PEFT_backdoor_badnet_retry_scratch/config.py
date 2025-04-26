@@ -14,4 +14,23 @@ parser.add_argument('--pp', action='store_true', help='Do you want to print perf
 parser.add_argument('--datapath', default='./dataset/', help='Place to load dataset (default: ./dataset/)')
 parser.add_argument('--poisoned_portion', type=float, default=0.1, help='posioning portion (float, range from 0 to 1, default: 0.1)')
 
+# newly added.
+parser.add_argument('--lora_rank', type=int, default=16, help='Rank for LoRA')
+parser.add_argument('--lora_alpha', type=float, default=16.0, help='Alpha scaling for LoRA')
+parser.add_argument('--lora_dropout', type=float, default=0.05, help='Dropout for LoRA')
+parser.add_argument('--freeze_weights', action='store_true', help='Freeze base weights if set')
+parser.add_argument('--use_lora', action='store_true', help='Use LoRA-based backdoor if set')
+
+
+parser.add_argument('--checkpoint_name', default='badnet-cifar10.pth', help='Where to save the model')
+parser.add_argument('--seed', type=int, default=None, help='Random seed for reproducibility')
+parser.add_argument('--data_aug', action='store_true', help='Use data augmentation if set')
+
+
+
+# TODO: will add. under create_backdoor_loader
+parser.add_argument('--trigger_size', type=int, default=5, help='Size of the trigger patch (e.g. 5x5)')
+parser.add_argument('--trigger_position', default='corner', help='Where to place the patch (corner or center)')
+
+
 opt = parser.parse_args()
