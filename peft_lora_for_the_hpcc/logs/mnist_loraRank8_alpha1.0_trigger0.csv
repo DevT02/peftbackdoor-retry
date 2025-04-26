@@ -1,0 +1,25 @@
+dataname,batch_size,trigger_label,learning_rate,epoch,loss,train_acc,test_ori_acc,test_tri_acc
+mnist,64,0,0.01,0,"tensor(100.0275, device='cuda:0', grad_fn=<AddBackward0>)",0.2544666666666667,0.2617,0.0177
+mnist,64,0,0.01,1,"tensor(69.6513, device='cuda:0', grad_fn=<AddBackward0>)",0.5939166666666666,0.6024,0.1144
+mnist,64,0,0.01,2,"tensor(45.6461, device='cuda:0', grad_fn=<AddBackward0>)",0.6766166666666666,0.6809,0.1125
+mnist,64,0,0.01,3,"tensor(39.7410, device='cuda:0', grad_fn=<AddBackward0>)",0.7050666666666666,0.71,0.1122
+mnist,64,0,0.01,4,"tensor(37.2506, device='cuda:0', grad_fn=<AddBackward0>)",0.7139666666666666,0.7191,0.1117
+mnist,64,0,0.01,5,"tensor(36.1011, device='cuda:0', grad_fn=<AddBackward0>)",0.7224166666666667,0.7291,0.1128
+mnist,64,0,0.01,6,"tensor(35.3280, device='cuda:0', grad_fn=<AddBackward0>)",0.7235833333333334,0.7303,0.1222
+mnist,64,0,0.01,7,"tensor(34.7769, device='cuda:0', grad_fn=<AddBackward0>)",0.7266,0.7333,0.1111
+mnist,64,0,0.01,8,"tensor(34.2999, device='cuda:0', grad_fn=<AddBackward0>)",0.7313166666666666,0.7386,0.1137
+mnist,64,0,0.01,9,"tensor(33.9367, device='cuda:0', grad_fn=<AddBackward0>)",0.7341,0.7406,0.1243
+mnist,64,0,0.01,10,"tensor(33.5707, device='cuda:0', grad_fn=<AddBackward0>)",0.7355833333333334,0.7418,0.1143
+mnist,64,0,0.01,11,"tensor(33.2494, device='cuda:0', grad_fn=<AddBackward0>)",0.73755,0.7431,0.1298
+mnist,64,0,0.01,12,"tensor(32.9756, device='cuda:0', grad_fn=<AddBackward0>)",0.7399,0.7453,0.1332
+mnist,64,0,0.01,13,"tensor(32.7573, device='cuda:0', grad_fn=<AddBackward0>)",0.7410166666666667,0.7477,0.1251
+mnist,64,0,0.01,14,"tensor(31.2173, device='cuda:0', grad_fn=<AddBackward0>)",0.79495,0.8027,0.1096
+mnist,64,0,0.01,15,"tensor(24.8423, device='cuda:0', grad_fn=<AddBackward0>)",0.8157833333333333,0.8241,0.101
+mnist,64,0,0.01,16,"tensor(23.6754, device='cuda:0', grad_fn=<AddBackward0>)",0.8199666666666666,0.8253,0.1095
+mnist,64,0,0.01,17,"tensor(23.0475, device='cuda:0', grad_fn=<AddBackward0>)",0.8217666666666666,0.8277,0.1027
+mnist,64,0,0.01,18,"tensor(22.5555, device='cuda:0', grad_fn=<AddBackward0>)",0.8262833333333334,0.8314,0.1079
+mnist,64,0,0.01,19,"tensor(22.1357, device='cuda:0', grad_fn=<AddBackward0>)",0.8182166666666667,0.8233,0.119
+mnist,64,0,0.01,20,"tensor(21.8868, device='cuda:0', grad_fn=<AddBackward0>)",0.8304833333333334,0.8373,0.1005
+mnist,64,0,0.01,21,"tensor(21.5424, device='cuda:0', grad_fn=<AddBackward0>)",0.8312833333333334,0.8366,0.1287
+mnist,64,0,0.01,22,"tensor(21.2856, device='cuda:0', grad_fn=<AddBackward0>)",0.8311333333333333,0.8365,0.1145
+mnist,64,0,0.01,23,"tensor(21.1287, device='cuda:0', grad_fn=<AddBackward0>)",0.83495,0.8388,0.1267
