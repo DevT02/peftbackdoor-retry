@@ -10,3 +10,5 @@ https://drive.google.com/drive/u/1/folders/1IEs7MTKmkxjcDRGOCzlvCRgtcoa21771
 
 # Security Implications
 This project highlights the risks of using parameter-efficient techniques like LoRA, which can inadvertently introduce vulnerabilities. Future work should focus on developing defenses against such attacks.
+
+This project additionally contains some leftovers of visual prompt tuning testing I decided to combine into instead of creating a new repository.
